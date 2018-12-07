@@ -17,7 +17,7 @@ app.config['SECRET_KEY'] = 'hard to guess string from si364'
 ## TODO 364: Create a database in postgresql in the code line below, and fill in your app's database URI. It should be of the format: postgresql://localhost/YOUR_DATABASE_NAME
 
 ## Your final Postgres database should be your uniqname, plus HW5, e.g. "jczettaHW5" or "maupandeHW5"
-app.config["SQLALCHEMY_DATABASE_URI"] = ""
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://localhost/todoSI364"
 ## Provided:
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -64,15 +64,20 @@ class TodoListForm(FlaskForm):
     submit = SubmitField("Submit")
 
 # TODO 364: Define an UpdateButtonForm class for use to update todo items
+class UpdateButtonForm(FlaskForm):
+    submit = SubmitField('Update')
 
 
 
 # TODO 364: Define a form class for updating the priority of a todolist item
 #(HINT: What class activity you have done before is this similar to?)
-
+class UpdatePriorityForm(FlaskForm):
+    priority = FloatField("New priority ", validators = [Required()] )
+    submit = SubmitField('Submit')
 
 # TODO 364: Define a DeleteButtonForm class for use to delete todo items
-
+class DeleteButtonForm(FlaskForm):
+    submit = SubmitField('Delete')
 
 
 ################################
@@ -122,9 +127,9 @@ def index():
 # Provided - see below for additional TODO
 @app.route('/all_lists',methods=["GET","POST"])
 def all_lists():
-    form = DeleteButtonForm()
+    formdel = DeleteButtonForm()
     lsts = TodoList.query.all()
-    return render_template('all_lists.html',todo_lists=lsts, form=form)
+    return render_template('all_lists.html',todo_lists=lsts, formdel=formdel)
 
 # TODO 364: Update the all_lists.html template and the all_lists view function such that there is a delete button available for each ToDoList saved.
 # When you click on the delete button for each list, that list should get deleted -- this is also addressed in a later TODO.
@@ -132,18 +137,28 @@ def all_lists():
 # Provided - see below for additional TODO
 @app.route('/list/<ident>',methods=["GET","POST"])
 def one_list(ident):
-    form = UpdateButtonForm()
+    updform = UpdateButtonForm()
     lst = TodoList.query.filter_by(id=ident).first()
     items = lst.items.all()
-    return render_template('list_tpl.html',todolist=lst,items=items,form=form)
+    return render_template('list_tpl.html',todolist=lst,items=items,updform=updform)
 # TODO 364: Update the one_list view function and the list_tpl.html view file so that there is an Update button next to each todolist item, and the priority integer of that item can be updated. (This is also addressed in later TODOs.)
 # HINT: These template updates are minimal, but that small update(s) make(s) a big change in what you can do in the app! Check out the examples from previous classes for help.
 
 
 # TODO 364: Complete route to update an individual ToDo item's priority
-@app.route('/update/<item>',methods=["GET","POST"])
+@app.route('/update/<item>', methods=["GET","POST"])
 def update(item):
-    pass # Replace with code
+    t = TodoItem.query.filter_by(id = int(item)).first()
+    form = UpdatePriorityForm()
+    
+    if form.validate_on_submit():
+        new_priority = form.priority.data
+        t.priority = new_priority
+        db.session.commit()
+        flash("Updated priority of " + t.description)
+        return redirect(url_for('all_lists'))
+
+    return render_template('update_item.html', form = form, item = t)
     # This code should use the form you created above for updating the specific item and manage the process of updating the item's priority.
     # Once it is updated, it should redirect to the page showing all the links to todo lists.
     # It should flash a message: Updated priority of <the description of that item>
@@ -154,6 +169,12 @@ def update(item):
 # TODO 364: Complete route to delete a whole ToDoList
 @app.route('/delete/<lst>',methods=["GET","POST"])
 def delete(lst):
+    l = TodoList.query.filter_by(id = int(lst)).first()
+    print(l)
+    db.session.delete(l)
+    db.session.commit()
+    flash("Successfully deleted {}".format(l.title))
+    return redirect(url_for('all_lists'))
     pass # Replace with code
     # This code should successfully delete the appropriate todolist
     # Should flash a message about what was deleted, e.g. Deleted list <title of list>
